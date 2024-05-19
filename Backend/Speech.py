@@ -4,7 +4,10 @@ import torch
 import numpy as np
 from itertools import groupby
 from MinMaxNormalizer import MinMaxNormalizer
+import json
 # from datasets import load_dataset
+with open("project\\vocab.json", "r", encoding="utf-8") as file:
+    DATA = json.load(file)
 
 def decode_phonemes(ids: torch.Tensor, processor: Wav2Vec2Processor, ignore_stress: bool = False) -> str:
     """CTC-like decoding. First removes consecutive duplicates, then removes special tokens."""
@@ -26,6 +29,16 @@ def decode_phonemes(ids: torch.Tensor, processor: Wav2Vec2Processor, ignore_stre
 
     return prediction
 
+def find_weak_phonemes(logits, threshold=0.95):
+    logits = torch.softmax(logits, dim=-1)
+    predicted_phoneme_max_probabilities, predicted_phoneme_indices = torch.max(logits, -1)
+    if (predicted_phoneme_max_probabilities < threshold).any():
+        weak_phonemes_indices = predicted_phoneme_indices[predicted_phoneme_max_probabilities < threshold]
+    num_to_phoneme = {value: key for key, value in DATA.items()}
+    mapped_phonemes = [num_to_phoneme[index.item()] for index in weak_phonemes_indices if index != 0]
+    mapped_phonemes = [key for key, _ in groupby(mapped_phonemes)]
+    return mapped_phonemes
+
 # Important!! Use this to deploy model!
 def audio_service(audio_array):
     audio_array = np.array(audio_array)
@@ -44,7 +57,7 @@ def audio_service(audio_array):
 
     with torch.no_grad():
         logits = model(inputs["input_values"]).logits
-
+    weak_phonemes = find_weak_phonemes(logits)
     predicted_ids = torch.argmax(logits, dim=-1)
     prediction = decode_phonemes(predicted_ids[0], processor)
-    return prediction
+    return weak_phonemes, prediction
