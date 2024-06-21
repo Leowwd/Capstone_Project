@@ -10,16 +10,15 @@ def index():
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
-    filename = ''
     if request.method == 'POST':
         if 'file' not in request.files:
             return jsonify({'error': 'No file part'})
         file = request.files['file']
+        threshold = float(request.form['threshold'])
         if file.filename == '':
             return jsonify({'error': 'No selected file'})
         if file:
             audio_path = save_audio(file)
-            weak_phonemes, predictions = audio_service(audio_path)
-            return jsonify({'success': 'File uploaded successfully', 'filename': filename, 
-                            'weak_phonemes': weak_phonemes, 'predictions': predictions})
+            weak_phonemes, predictions = audio_service(audio_path, threshold)
+            return jsonify({'weak_phonemes': weak_phonemes, 'predictions': predictions, "suggestion": "To be implemented"})
     return render_template('upload.html')

@@ -6,6 +6,9 @@
 <body>
     <h1>Upload File</h1>
     <form action="/upload" method="post" enctype="multipart/form-data">
+        <label for="threshold">Threshold:</label><br>
+        <input type="range" id="threshold" name="threshold" min="0" max="1" step="0.01" value="0.5" oninput="this.nextElementSibling.value = this.value">
+        <output>0.5</output><br>
         <input type="file" name="file">
         <input type="submit" value="Upload">
     </form>
