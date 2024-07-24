@@ -19,6 +19,6 @@ def upload_file():
             return jsonify({'error': 'No selected file'})
         if file:
             audio_path = save_audio(file)
-            weak_phonemes, predictions = audio_service(audio_path, threshold)
-            return jsonify({'weak_phonemes': weak_phonemes, 'predictions': predictions, "suggestion": "To be implemented"})
+            weak_phonemes, predictions, correct, diff_out, ratio = audio_service(audio_path, threshold)
+            return jsonify({'weak_phonemes': weak_phonemes, 'predictions': predictions, "correct": correct, "diff": diff_out, "accuracy": ratio, "suggestion": "To be implemented"})
     return render_template('upload.html')

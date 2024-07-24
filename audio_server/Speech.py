@@ -5,6 +5,14 @@ from itertools import groupby
 import json
 import librosa
 from flask import current_app as app
+from audio_server.utils import compare_texts
+from datasets import load_dataset
+
+ds = load_dataset("bookbot/ljspeech_phonemes", split="train")
+checkpoint = "speech31/wav2vec2-large-english-TIMIT-phoneme_v3"
+model = AutoModelForCTC.from_pretrained(checkpoint)
+processor = AutoProcessor.from_pretrained(checkpoint)
+sr = processor.feature_extractor.sampling_rate
 
 with open(os.path.join(app.root_path, 'static', "vocab.json"), "r", encoding="utf-8") as file:
     DATA = json.load(file)
@@ -21,16 +29,20 @@ def find_weak_phonemes(logits, threshold=0.95):
         mapped_phonemes = []
     return mapped_phonemes
 
-def audio_service(url, threshold=0.95):
-    audio_array, _ = librosa.load(url, sr=16000)
-    checkpoint = "speech31/wav2vec2-large-english-TIMIT-phoneme_v3"
-    model = AutoModelForCTC.from_pretrained(checkpoint)
-    processor = AutoProcessor.from_pretrained(checkpoint)
+def find_wrong_phonemes(prediction, correct):
+    diff_output, ratio = compare_texts(correct.strip(), prediction.strip())
+    return diff_output, ratio
 
-    inputs = processor(audio_array, return_tensors="pt", padding=True)
-
+def audio_service(url, threshold=0.95, index=1):
+    user_audio_array, _ = librosa.load(url, sr=sr)
+    inputs = processor(user_audio_array, sampling_rate=sr, return_tensors="pt", padding=True)
     logits = model(inputs["input_values"]).logits
+    correct_inputs = processor(ds[index]["audio"]["array"], sampling_rate=sr, return_tensors="pt", padding=True)
+    correct_logits = model(correct_inputs["input_values"]).logits
     weak_phonemes = find_weak_phonemes(logits, threshold)
     predicted_ids = torch.argmax(logits, dim=-1)
+    correct_predicted_ids = torch.argmax(correct_logits, dim=-1)
     prediction = processor.batch_decode(predicted_ids)
-    return weak_phonemes, prediction
+    correct = processor.batch_decode(correct_predicted_ids)
+    diff_out, ratio = find_wrong_phonemes(prediction[0], correct[0])
+    return weak_phonemes, prediction, correct, diff_out, ratio
