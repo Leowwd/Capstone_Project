@@ -14,7 +14,7 @@ Follow these instructions to get the project up and running on your local machin
 
 ### Prerequisites
 
-- Python 3.x
+- Python 3.11.9
 - Flask
 - PyTorch
 - Other dependencies listed in `requirements.txt`
