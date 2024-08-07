@@ -1,6 +1,6 @@
 from flask import request, jsonify, render_template
 from flask import current_app as app
-from audio_server.Speech import audio_service
+from audio_server.Speech import audio_service, map_phonemes
 from audio_server.utils import save_audio
 
 @app.route('/')
@@ -11,14 +11,12 @@ def index():
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file part'})
-        file = request.files['file']
-        threshold = float(request.form['threshold'])
-        if file.filename == '':
-            return jsonify({'error': 'No selected file'})
-        if file:
-            audio_path = save_audio(file)
-            weak_phonemes, predictions, correct, diff_out, ratio = audio_service(audio_path, threshold)
-            return jsonify({'weak_phonemes': weak_phonemes, 'predictions': predictions, "correct": correct, "diff": diff_out, "accuracy": ratio, "suggestion": "To be implemented"})
-    return render_template('upload.html')
+        insertValues = request.get_json()
+        audio_base64 = insertValues["audio_base64"] # input
+        index = insertValues["index"] # input
+        threshold = insertValues["threshold"] # input
+        if audio_base64:
+            audio_path = save_audio(audio_base64)
+            weak_phonemes, predictions, correct, diff_out, ratio = audio_service(audio_path, threshold, index)
+            phonemes_map = map_phonemes(weak_phonemes)
+            return jsonify({'weak_phonemes': weak_phonemes, 'predictions': predictions, "correct": correct, "diff": diff_out, "accuracy": ratio, "phonemes_map": phonemes_map})

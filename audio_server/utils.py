@@ -4,26 +4,17 @@ from werkzeug.utils import secure_filename
 from flask import current_app as app
 import difflib
 from pydub import AudioSegment
+import base64
 
-def save_audio(file):
-    filename = secure_filename(file.filename)
+def save_audio(audio_base64):
+    audio_data = base64.b64decode(audio_base64)
     random_hex = secrets.token_hex(8)
-    _, f_ext = os.path.splitext(filename)
     audio_fn = random_hex + '.wav'
     audio_path = os.path.join(app.root_path, 'static/audio', audio_fn)
-
-    supported_formats = ['.m4a', '.mp3', '.ogg', '.flac']
-
-    if f_ext in supported_formats:
-        temp_path = os.path.join(app.root_path, 'static/audio', random_hex + f_ext)
-        file.save(temp_path)
-        convert_to_wav(temp_path, audio_path)
-        os.remove(temp_path)
-    else:
-        file.save(audio_path)
+    with open(audio_path, 'wb') as audio_file:
+        audio_file.write(audio_data)
 
     return audio_path
-
 
 def convert_to_wav(input_file, output_file):
     try:
