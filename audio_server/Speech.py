@@ -17,6 +17,9 @@ sr = processor.feature_extractor.sampling_rate
 with open(os.path.join(app.root_path, 'static', "vocab.json"), "r", encoding="utf-8") as file:
     DATA = json.load(file)
 
+with open(os.path.join(app.root_path, 'static', "phonemes.json"), "r", encoding="utf-8") as file:
+    PHONEMES = json.load(file)
+
 def find_weak_phonemes(logits, threshold=0.95):
     logits = torch.softmax(logits, dim=-1)
     predicted_phoneme_max_probabilities, predicted_phoneme_indices = torch.max(logits, -1)
@@ -46,3 +49,6 @@ def audio_service(url, threshold=0.95, index=1):
     correct = processor.batch_decode(correct_predicted_ids)
     diff_out, ratio = find_wrong_phonemes(prediction[0], correct[0])
     return weak_phonemes, prediction, correct, diff_out, ratio
+
+def map_phonemes(phonemes):
+    return {phoneme: PHONEMES[phoneme] for phoneme in phonemes}

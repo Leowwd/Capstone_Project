@@ -3,7 +3,6 @@ import secrets
 from werkzeug.utils import secure_filename
 from flask import current_app as app
 import difflib
-from pydub import AudioSegment
 import base64
 
 def save_audio(audio_base64):
@@ -15,13 +14,6 @@ def save_audio(audio_base64):
         audio_file.write(audio_data)
 
     return audio_path
-
-def convert_to_wav(input_file, output_file):
-    try:
-        audio = AudioSegment.from_file(input_file)
-        audio.export(output_file, format="wav")
-    except Exception as e:
-        print(e)
 
 def compare_texts(correct, prediction):
     """
