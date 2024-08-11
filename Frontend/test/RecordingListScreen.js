@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useContext, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView, TextInput, Modal, Alert} from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView, TextInput, Modal, Alert, FlatList } from 'react-native';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -8,6 +8,7 @@ import Slider from '@react-native-community/slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { manage_backgroundColor } from './manage_backgroundColor';
+
 
 export default function RecordingListScreen() {
   const [recordingData, setRecordingData] = useState([]);
@@ -143,13 +144,31 @@ export default function RecordingListScreen() {
   async function handleSharing(index) {
     try {
       const uri = recordingData[index].uri;
-      await Sharing.shareAsync(uri, {
-        dialogTitle: '保存錄音',
-        mimeType: 'audio/x-wav',  
-      UTI: 'public.audio'
+
+      const fileContents = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      
+      const response = await fetch('http://127.0.0.1:8080/upload', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audio_base64: fileContents,
+          index: index,
+          threshold: 0.75
+        }),
       });
+
+      if (response.ok) {
+        Alert.alert('成功', '錄音文件已成功上傳');
+      } else {
+        Alert.alert('失敗', '上傳錄音文件失敗');
+      }
+
     } catch (error) {
       console.error('分享錄音失敗', error);
+      Alert.alert('失敗', '分享錄音失敗');
     }
   }
 

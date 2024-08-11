@@ -1,8 +1,10 @@
-// HomeScreen.js
 import React, { useContext, useRef } from 'react';
-import { StyleSheet, Text, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, Animated, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { manage_backgroundColor } from './manage_backgroundColor';
+import { COLORS, FONTS } from './theme';
 
 export default function HomeScreen({ navigation }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -11,35 +13,41 @@ export default function HomeScreen({ navigation }) {
 
   useFocusEffect(
     React.useCallback(() => {
-      // 重置動畫值
-      fadeAnim.setValue(0);
-      slideAnim.setValue(100);
-
-      // 啟動動畫
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 2000,
+          duration: 1000,
           useNativeDriver: true,
         }),
         Animated.timing(slideAnim, {
           toValue: 0,
-          duration: 1000,
+          duration: 800,
           useNativeDriver: true,
         }),
       ]).start();
+
+      return () => {
+        fadeAnim.setValue(0);
+        slideAnim.setValue(100);
+      };
     }, [fadeAnim, slideAnim])
   );
 
   return (
-    <Animated.View style={[styles.container, { backgroundColor: isWhite ? '#ffffff' : '#171919' }]}>
-      <Animated.Text style={[styles.title, { opacity: fadeAnim }]}>音無虛發</Animated.Text>
+    <LinearGradient
+      colors={isWhite ? [COLORS.lightBg1, COLORS.lightBg2] : [COLORS.darkBg1, COLORS.darkBg2]}
+      style={styles.container}
+    >
+      <Animated.Text style={[styles.title, { opacity: fadeAnim, color: isWhite ? COLORS.darkText : COLORS.lightText }]}>
+        音無虛發
+      </Animated.Text>
       <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
         <TouchableOpacity style={styles.menuButton} onPress={() => navigation.navigate('實作介面')}>
+          <Ionicons name="mic-outline" size={24} color="white" style={styles.buttonIcon} />
           <Text style={styles.buttonText}>開始測試</Text>
         </TouchableOpacity>
       </Animated.View>
-    </Animated.View>
+    </LinearGradient>
   );
 }
 
@@ -50,10 +58,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 42,
-    fontWeight: '800',
-    marginBottom: 30,
-    color: '#1a73e8',
+    ...FONTS.h1,
+    marginBottom: 50,
     textTransform: 'uppercase',
     letterSpacing: 2,
     textShadowColor: 'rgba(0, 0, 0, 0.1)',
@@ -61,24 +67,23 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   menuButton: {
-    backgroundColor: '#1a73e8',
-    padding: 18,
-    borderRadius: 30,
-    width: 200,
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 30,
+    elevation: 5,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,
-    marginVertical: 10,
+  },
+  buttonIcon: {
+    marginRight: 10,
   },
   buttonText: {
     color: 'white',
-    fontSize: 20,
-    fontWeight: '600',
+    ...FONTS.button,
   },
 });
