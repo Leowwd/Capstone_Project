@@ -47,7 +47,7 @@ def audio_service(url, threshold=0.95, index=1):
     correct_predicted_ids = torch.argmax(correct_logits, dim=-1)
     prediction = processor.batch_decode(predicted_ids)[0]
     correct = processor.batch_decode(correct_predicted_ids)[0]
-    diff_out, ratio = find_wrong_phonemes(prediction[0], correct[0])
+    diff_out, ratio = find_wrong_phonemes(prediction, correct)
     return weak_phonemes, prediction, correct, diff_out, ratio
 
 def map_phonemes(phonemes):
