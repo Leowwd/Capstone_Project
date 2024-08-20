@@ -25,6 +25,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+<<<<<<< HEAD
     }
+=======
+    },
+    "jsEngine": "hermes"
+>>>>>>> 857b88a35aa5ceea6a42940a354ddc829644121b
   }
 }
