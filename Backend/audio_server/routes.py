@@ -1,6 +1,6 @@
-from flask import request, jsonify, render_template
+from flask import request, jsonify
 from flask import current_app as app
-from audio_server.Speech import audio_service, map_phonemes
+from audio_server.Speech import audio_service
 from audio_server.utils import save_audio
 
 @app.route('/')
@@ -17,6 +17,14 @@ def upload_file():
         threshold = insertValues["threshold"] # input
         if audio_base64:
             audio_path = save_audio(audio_base64)
-            weak_phonemes, predictions, correct, diff_out, ratio = audio_service(audio_path, threshold, index)
-            phonemes_map = map_phonemes(weak_phonemes)
-            return jsonify({'weak_phonemes': weak_phonemes, 'predictions': predictions, "correct": correct, "diff": diff_out, "accuracy": ratio, "phonemes_map": phonemes_map})
+            weak_phonemes, phoneme_differences, prediction, correct, diff_out, feedback, phoneme_info, ratio = audio_service(audio_path, threshold, index)
+            return jsonify({
+                'weak_phonemes': weak_phonemes,
+                'phoneme_differences': phoneme_differences,
+                'prediction': prediction,
+                'correct': correct,
+                'diff_out': diff_out,
+                'feedback': feedback,
+                'phoneme_info': phoneme_info,
+                "ratio": ratio
+            })
