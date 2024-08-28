@@ -63,8 +63,23 @@ def get_pronunciation_advice(correct_phoneme, pred_phoneme, minor=False):
     else:
         return f"請練習 '{correct_phoneme}' 的發音。{PHONEMES.get(correct_phoneme, '請注意正確的發音方式。')}"
 
-def feedback_through_wrong_phonemes(diff):
+def feedback_through_wrong_phonemes(diff_out):
     feedback = []
+    for diff in diff_out:
+        sign, phoneme = diff[0], diff[2:]
+        if phoneme in PHONEMES and phoneme != " ":
+            info = PHONEMES[phoneme]
+            entry = {
+                "phoneme": phoneme,
+                "error_type": "missing" if sign == '-' else "extra",
+                "common_mistake": info['常見錯誤'],
+                "correction": {
+                    "pronunciation": info['發音'],
+                    "mouth_position": info['口腔位置'],
+                    "tongue_position": info['舌位']
+                }
+            }
+            feedback.append(entry)
     return feedback
 
 def audio_service(url, threshold=0.95, index=1):
@@ -82,9 +97,6 @@ def audio_service(url, threshold=0.95, index=1):
     prediction_transcription = processor.batch_decode(predicted_ids)[0]
     correct_transcription = processor.batch_decode(correct_predicted_ids)[0]
 
-
     diff, ratio = find_wrong_phonemes(prediction_transcription, correct_transcription)
 
-    feedback = feedback_through_wrong_phonemes(diff)
-
-    return weak_phonemes, prediction_transcription, correct_transcription, diff, feedback, {phoneme: PHONEMES[phoneme] for phoneme in weak_phonemes}, ratio
+    return weak_phonemes, prediction_transcription, correct_transcription, feedback_through_wrong_phonemes(diff), {phoneme: PHONEMES[phoneme] for phoneme in weak_phonemes}, ratio

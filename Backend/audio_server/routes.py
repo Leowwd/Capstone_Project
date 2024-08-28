@@ -17,13 +17,12 @@ def upload_file():
         threshold = insertValues["threshold"] # input
         if audio_base64:
             audio_path = save_audio(audio_base64)
-            weak_phonemes, prediction, correct, diff_out, feedback, phoneme_info, ratio = audio_service(audio_path, threshold, index)
+            weak_phonemes, prediction, correct, feedback, phoneme_info, ratio = audio_service(audio_path, threshold, index)
             if ratio:
                 return jsonify({
                     'weak_phonemes': weak_phonemes,
                     'prediction': prediction,
                     'correct': correct,
-                    'diff_out': diff_out,
                     'feedback': feedback,
                     'phoneme_info': phoneme_info,
                     "ratio": ratio,
