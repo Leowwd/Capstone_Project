@@ -8,9 +8,6 @@ from flask import current_app as app
 from audio_server.utils import compare_texts
 from datasets import load_dataset
 import numpy as np
-from dtaidistance import dtw
-from collections import defaultdict
-from operator import itemgetter
 
 ds = load_dataset("bookbot/ljspeech_phonemes", split="train")
 checkpoint = "speech31/wav2vec2-large-english-TIMIT-phoneme_v3"
@@ -40,28 +37,9 @@ def find_weak_phonemes(logits, threshold=0.95):
     else:
         return []
 
-def align_sequences(pred_seq, correct_seq):
-    alignment = dtw.warping_path(pred_seq, correct_seq)
-    return alignment
-
 def find_wrong_phonemes(prediction, correct):
     diff_output, ratio = compare_texts(correct.strip(), prediction.strip())
     return diff_output, ratio
-
-def calculate_posterior(prior, likelihood, marginal):
-    return (likelihood * prior) / marginal
-
-def get_phoneme_feedback(correct_phoneme, pred_phoneme, difference, threshold=3):
-    if difference > threshold:
-        return f"您將 '{correct_phoneme}' 發音為 '{pred_phoneme}'。這兩個音素的發音差異很大。建議：{get_pronunciation_advice(correct_phoneme, pred_phoneme)}"
-    else:
-        return f"您的 '{correct_phoneme}' 發音接近正確，但與 '{pred_phoneme}' 有些微差異。建議：{get_pronunciation_advice(correct_phoneme, pred_phoneme, minor=True)}"
-
-def get_pronunciation_advice(correct_phoneme, pred_phoneme, minor=False):
-    if minor:
-        return f"注意 '{correct_phoneme}' 和 '{pred_phoneme}' 的細微差別。{PHONEMES.get(correct_phoneme, '請注意正確的發音方式。')}"
-    else:
-        return f"請練習 '{correct_phoneme}' 的發音。{PHONEMES.get(correct_phoneme, '請注意正確的發音方式。')}"
 
 def feedback_through_wrong_phonemes(diff_out):
     feedback = []
