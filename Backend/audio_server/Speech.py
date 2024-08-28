@@ -63,6 +63,10 @@ def get_pronunciation_advice(correct_phoneme, pred_phoneme, minor=False):
     else:
         return f"請練習 '{correct_phoneme}' 的發音。{PHONEMES.get(correct_phoneme, '請注意正確的發音方式。')}"
 
+def feedback_through_wrong_phonemes(diff):
+    feedback = []
+    return feedback
+
 def audio_service(url, threshold=0.95, index=1):
     user_audio_array, _ = librosa.load(url, sr=sr)
 
@@ -75,64 +79,12 @@ def audio_service(url, threshold=0.95, index=1):
     predicted_ids = torch.argmax(logits, dim=-1)
     correct_predicted_ids = torch.argmax(correct_logits, dim=-1)
 
-    # 轉換為機率分布
-    pred_probs = torch.nn.functional.softmax(logits, dim=-1).squeeze(0).detach().numpy()
-    correct_probs = torch.nn.functional.softmax(correct_logits, dim=-1).squeeze(0).detach().numpy()
-
-    pred_seq = pred_probs.argmax(axis=-1)
-    correct_seq = correct_probs.argmax(axis=-1)
-
     prediction_transcription = processor.batch_decode(predicted_ids)[0]
     correct_transcription = processor.batch_decode(correct_predicted_ids)[0]
 
-    # 對齊序列
-    alignment = align_sequences(pred_seq, correct_seq)
 
-    phoneme_differences = []
-    feedback = []
-    processed_pairs = set()
-    kl_div_sum = defaultdict(float)
-    kl_div_count = defaultdict(int)
+    diff, ratio = find_wrong_phonemes(prediction_transcription, correct_transcription)
 
-    for i, j in alignment:
-        if (pred_seq[i] == 43 and correct_seq[j] not in [27, 42, 43]) or (pred_seq[i] not in [27, 42, 43] and correct_seq[j] == 43) or (pred_seq[i] not in [27, 42, 43] and correct_seq[j] not in [27, 42, 43]):
-            pred_phoneme = num_to_phoneme[pred_seq[i]]
-            correct_phoneme = num_to_phoneme[correct_seq[j]]
+    feedback = feedback_through_wrong_phonemes(diff)
 
-            phoneme_pair = (correct_phoneme, pred_phoneme)
-
-            if pred_phoneme != correct_phoneme:
-                # Use KL Divergence
-                kl_div = float(np.sum(correct_probs[j] * np.log(correct_probs[j] / pred_probs[i])))
-
-                # Accumulate KL Divergence for the same phoneme and record count for the one.
-                kl_div_sum[phoneme_pair] += kl_div
-                kl_div_count[phoneme_pair] += 1
-
-                # Record the differences of phoneme
-                phoneme_differences.append((correct_phoneme, pred_phoneme, kl_div))
-
-                # feedback for not processed pairs phonemes
-                if phoneme_pair not in processed_pairs:
-                    processed_pairs.add(phoneme_pair)
-
-    grouped_phoneme_differences = []
-    feedback = []
-    for phoneme_pair, total_kl_div in kl_div_sum.items():
-        average_kl_div = total_kl_div / kl_div_count[phoneme_pair]
-        grouped_phoneme_differences.append((*phoneme_pair, average_kl_div))
-        
-        correct_phoneme, pred_phoneme = phoneme_pair
-
-        if correct_phoneme not in ["[PAD]", "[UNK]", "|"]:
-            feedback.append(get_phoneme_feedback(correct_phoneme, pred_phoneme, average_kl_div))
-
-    # 將音素差異轉換為與之前格式相容的形式
-    diff_out = []
-    for correct, pred, _ in grouped_phoneme_differences:
-        if correct != pred:
-            diff_out.extend([f"-{correct}", f"+{pred}"])
-
-    _, ratio = find_wrong_phonemes(prediction_transcription, correct_transcription)
-
-    return weak_phonemes, grouped_phoneme_differences, prediction_transcription, correct_transcription, diff_out, feedback, {phoneme: PHONEMES[phoneme] for phoneme in weak_phonemes}, ratio
+    return weak_phonemes, prediction_transcription, correct_transcription, diff, feedback, {phoneme: PHONEMES[phoneme] for phoneme in weak_phonemes}, ratio
