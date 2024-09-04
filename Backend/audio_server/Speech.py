@@ -7,7 +7,6 @@ import librosa
 from flask import current_app as app
 from audio_server.utils import compare_texts
 from datasets import load_dataset
-import numpy as np
 
 ds = load_dataset("bookbot/ljspeech_phonemes", split="train")
 checkpoint = "speech31/wav2vec2-large-english-TIMIT-phoneme_v3"
