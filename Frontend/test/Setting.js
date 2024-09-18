@@ -1,14 +1,22 @@
 // Setting.js
-import React, { useContext } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { manage_backgroundColor } from './manage_backgroundColor';
+import React, { useContext } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { manage_backgroundColor } from "./manage_backgroundColor";
 
 export default function Setting() {
   const { isWhite, toggleBackgroundColor } = useContext(manage_backgroundColor);
 
   return (
-    <View style={[styles.container, { backgroundColor: isWhite ? '#ffffff' : '#171919' }]}>
-      <TouchableOpacity style={styles.menuButton} onPress={toggleBackgroundColor}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: isWhite ? "#ffffff" : "#171919" },
+      ]}
+    >
+      <TouchableOpacity
+        style={styles.menuButton}
+        onPress={toggleBackgroundColor}
+      >
         <Text style={styles.buttonText}>切換夜間模式</Text>
       </TouchableOpacity>
     </View>
@@ -18,15 +26,15 @@ export default function Setting() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   menuButton: {
-    backgroundColor: '#1a73e8',
+    backgroundColor: "#1a73e8",
     padding: 18,
     borderRadius: 30,
     width: 200,
-    alignItems: 'center',
+    alignItems: "center",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -38,8 +46,8 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   buttonText: {
-    color: 'white',
+    color: "white",
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
