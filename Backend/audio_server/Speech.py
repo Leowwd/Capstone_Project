@@ -23,33 +23,52 @@ with open(os.path.join(app.root_path, 'static', "vocab.json"), "r", encoding="ut
 
 num_to_phoneme = {value: key for key, value in DATA.items()}
 
+phoneme_examples = {
+    "aɪ": "fine", "aʊ": "house", "b": "boy", "d": "day", "d͡ʒ": "jump", "eɪ": "say", "f": "fish", "h": "hat",
+    "i": "see", "j": "yes", "k": "key", "l": "love", "m": "man", "n": "no", "oʊ": "go", "p": "pen", "s": "sun",
+    "t": "tea", "t͡ʃ": "chair", "u": "blue", "v": "voice", "w": "water", "z": "zoo", "æ": "cat", "ð": "this",
+    "ŋ": "sing", "ɑ": "hot", "ɔ": "law", "ɔɪ": "boy", "ə": "about", "ɚ": "butter", "ɛ": "bed", "ɡ": "go",
+    "ɪ": "sit", "ɹ": "red", "ʃ": "she", "ʊ": "put", "ʌ": "but", "ʒ": "measure", "θ": "think"
+}
+
 with open(os.path.join(app.root_path, 'static', "phonemes.json"), "r", encoding="utf-8") as file:
     PHONEMES = json.load(file)
 
-def mark_missing_phonemes(correct_sentence, missing_phonemes):
+def mark_missing_phonemes(correct_sentence: str, correct_phonemes: str, predicted_phonemes: str, missing_phonemes: list):
+    # Create a list of all phonemes
+    all_phonemes = [p for p in DATA.keys() if p not in ["[PAD]", "[UNK]", "|"]]
+    all_phonemes_str = ", ".join(all_phonemes)
+    
     prompt = f"""
     The sentence is: "{correct_sentence}".
-    The user missed the following phonemes in this exact order: {missing_phonemes}.
-    Mark the corresponding letter(s) in the sentence where each phoneme occurs.
-    Guidelines:
-    1. Each phoneme should correspond to one or more adjacent letters in the sentence.
-    2. Mark the letters by surrounding them with square brackets [].
-    3. Phonemes may correspond to parts of words, not just single letters.
-    4. For vowel sounds, mark the most likely corresponding vowel or vowel combination.
-    5. For consonant sounds, mark the corresponding consonant(s).
-    6. The 'ə' (schwa) sound can correspond to various vowels in unstressed syllables. If not obvious, prefer marking 'a' or 'e' in unstressed syllables.
-    7. If a phoneme could match multiple parts of the sentence, choose the earliest occurrence that hasn't been marked yet.
-    8. Do not skip any phonemes in the list. If you can't find an exact match, mark the closest approximation.
-    9. For diphthongs or complex sounds, you may mark multiple letters if necessary.
-    10. If a phoneme seems to be missing from the sentence, insert it in square brackets where it should be, e.g., "mod[e]rn" for a missing 'ə'.
     
-    Return only the marked sentence, no explanations or extra text.
+    All possible phonemes in English:
+    {all_phonemes_str}
+    
+    Correct phoneme sequence: {correct_phonemes}
+    Predicted phoneme sequence: {predicted_phonemes}
+    
+    The user missed the following phonemes in this exact order:
+    {', '.join(missing_phonemes)}
+    
+    Mark the corresponding letter(s) in the sentence where each missing phoneme occurs.
+    Guidelines:
+    1. Mark the letters by surrounding them with square brackets [].
+    2. Use the provided phoneme information, correct sequence, and predicted sequence to accurately identify the correct letters to mark.
+    3. The 'ə' (schwa) sound can correspond to various vowels in unstressed syllables.
+    4. If a phoneme could match multiple parts of the sentence, use the correct and predicted sequences to determine the most likely position.
+    5. Do not skip any phonemes in the list. If you can't find an exact match, mark the closest approximation.
+    6. If a phoneme seems to be missing from the sentence, insert it in square brackets where it should be, e.g., "mod[e]rn" for a missing 'ə'.
+    7. Preserve all original characters, including non-English characters and punctuation. Do not replace any characters with phonemes.
+    8. Only mark the specific letters or positions corresponding to the missing phonemes. Leave the rest of the text unchanged.
+    
+    Return only the marked sentence, without any explanations or extra text.
     """
     
     completion = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": "You are a system that accurately marks missing phonemes in sentences, handling edge cases and ambiguous situations."},
+            {"role": "system", "content": "You are a system that accurately marks missing phonemes in sentences, using phoneme sequences to ensure precision."},
             {"role": "user", "content": prompt}
         ],
         temperature=0
@@ -120,26 +139,22 @@ def feedback_through_wrong_phonemes(diff_out):
     return feedback, missing
 
 def audio_service(url, threshold=0.95, index=1):
-    user_audio_array, _ = librosa.load(url, sr=sr)
 
+    temp = ds[index]
+
+    user_audio_array, _ = librosa.load(url, sr=sr)
     inputs = processor(user_audio_array, sampling_rate=sr, return_tensors="pt", padding=True)
     with torch.no_grad():
         logits = model(inputs["input_values"]).logits
-
-    correct_inputs = processor(ds[index]["audio"]["array"], sampling_rate=sr, return_tensors="pt", padding=True)
-    with torch.no_grad():
-        correct_logits = model(correct_inputs["input_values"]).logits
-
+    
     weak_phonemes = find_weak_phonemes(logits, threshold)
     predicted_ids = torch.argmax(logits, dim=-1)
-    correct_predicted_ids = torch.argmax(correct_logits, dim=-1)
 
     prediction_transcription = decode_phonemes(predicted_ids[0], processor, ignore_stress=True)
-    correct_transcription = decode_phonemes(correct_predicted_ids[0], processor, ignore_stress=True)
-
+    correct_transcription = temp["phonemes"].replace("ˈ", "").replace("ˌ", "").replace(".", "").strip()
     diff, ratio = find_wrong_phonemes(prediction_transcription, correct_transcription)
     feedback, missing = feedback_through_wrong_phonemes(diff)
 
-    marked_transcript = mark_missing_phonemes(ds[index]["normalized_text"], missing)
+    marked_transcript = mark_missing_phonemes(temp["normalized_text"], correct_transcription, prediction_transcription, missing)
 
     return weak_phonemes, prediction_transcription, correct_transcription, feedback, missing, {phoneme: PHONEMES[phoneme] for phoneme in weak_phonemes}, ratio, marked_transcript
