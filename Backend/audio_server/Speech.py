@@ -31,6 +31,14 @@ phoneme_examples = {
     "ɪ": "sit", "ɹ": "red", "ʃ": "she", "ʊ": "put", "ʌ": "but", "ʒ": "measure", "θ": "think"
 }
 
+phoneme_examples = {
+    "aɪ": "fine", "aʊ": "house", "b": "boy", "d": "day", "d͡ʒ": "jump", "eɪ": "say", "f": "fish", "h": "hat",
+    "i": "see", "j": "yes", "k": "key", "l": "love", "m": "man", "n": "no", "oʊ": "go", "p": "pen", "s": "sun",
+    "t": "tea", "t͡ʃ": "chair", "u": "blue", "v": "voice", "w": "water", "z": "zoo", "æ": "cat", "ð": "this",
+    "ŋ": "sing", "ɑ": "hot", "ɔ": "law", "ɔɪ": "boy", "ə": "about", "ɚ": "butter", "ɛ": "bed", "ɡ": "go",
+    "ɪ": "sit", "ɹ": "red", "ʃ": "she", "ʊ": "put", "ʌ": "but", "ʒ": "measure", "θ": "think"
+}
+
 with open(os.path.join(app.root_path, 'static', "phonemes.json"), "r", encoding="utf-8") as file:
     PHONEMES = json.load(file)
 
@@ -39,8 +47,24 @@ def mark_missing_phonemes(correct_sentence: str, correct_phonemes: str, predicte
     all_phonemes = [p for p in DATA.keys() if p not in ["[PAD]", "[UNK]", "|"]]
     all_phonemes_str = ", ".join(all_phonemes)
     
+def mark_missing_phonemes(correct_sentence: str, correct_phonemes: str, predicted_phonemes: str, missing_phonemes: list):
+    # Create a list of all phonemes
+    all_phonemes = [p for p in DATA.keys() if p not in ["[PAD]", "[UNK]", "|"]]
+    all_phonemes_str = ", ".join(all_phonemes)
+    
     prompt = f"""
     The sentence is: "{correct_sentence}".
+    
+    All possible phonemes in English:
+    {all_phonemes_str}
+    
+    Correct phoneme sequence: {correct_phonemes}
+    Predicted phoneme sequence: {predicted_phonemes}
+    
+    The user missed the following phonemes in this exact order:
+    {', '.join(missing_phonemes)}
+    
+    Mark the corresponding letter(s) in the sentence where each missing phoneme occurs.
     
     All possible phonemes in English:
     {all_phonemes_str}
@@ -68,6 +92,7 @@ def mark_missing_phonemes(correct_sentence: str, correct_phonemes: str, predicte
     completion = client.chat.completions.create(
         model="gpt-4o",
         messages=[
+            {"role": "system", "content": "You are a system that accurately marks missing phonemes in sentences, using phoneme sequences to ensure precision."},
             {"role": "system", "content": "You are a system that accurately marks missing phonemes in sentences, using phoneme sequences to ensure precision."},
             {"role": "user", "content": prompt}
         ],
@@ -142,19 +167,25 @@ def audio_service(url, threshold=0.95, index=1):
 
     temp = ds[index]
 
+
+    temp = ds[index]
+
     user_audio_array, _ = librosa.load(url, sr=sr)
     inputs = processor(user_audio_array, sampling_rate=sr, return_tensors="pt", padding=True)
     with torch.no_grad():
         logits = model(inputs["input_values"]).logits
+    
     
     weak_phonemes = find_weak_phonemes(logits, threshold)
     predicted_ids = torch.argmax(logits, dim=-1)
 
     prediction_transcription = decode_phonemes(predicted_ids[0], processor, ignore_stress=True)
     correct_transcription = temp["phonemes"].replace("ˈ", "").replace("ˌ", "").replace(".", "").strip()
+    correct_transcription = temp["phonemes"].replace("ˈ", "").replace("ˌ", "").replace(".", "").strip()
     diff, ratio = find_wrong_phonemes(prediction_transcription, correct_transcription)
     feedback, missing = feedback_through_wrong_phonemes(diff)
 
+    marked_transcript = mark_missing_phonemes(temp["normalized_text"], correct_transcription, prediction_transcription, missing)
     marked_transcript = mark_missing_phonemes(temp["normalized_text"], correct_transcription, prediction_transcription, missing)
 
     return weak_phonemes, prediction_transcription, correct_transcription, feedback, missing, {phoneme: PHONEMES[phoneme] for phoneme in weak_phonemes}, ratio, marked_transcript
