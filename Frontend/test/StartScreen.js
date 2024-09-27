@@ -42,7 +42,6 @@ export default function StartScreen({ navigation }) {
   const [playbackPosition, setPlaybackPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const playbackPositionRef = useRef(0);
-  
 
   const { isWhite } = useContext(manage_backgroundColor);
 
@@ -97,7 +96,7 @@ export default function StartScreen({ navigation }) {
             if (status.isLoaded) {
               setPlaybackPosition(status.positionMillis);
               playbackPositionRef.current = status.positionMillis;
-  
+
               // 如果進度接近總時長，手動設置為音頻終點
               if (status.positionMillis >= status.durationMillis - 500) {
                 setPlaybackPosition(status.durationMillis);
@@ -112,14 +111,13 @@ export default function StartScreen({ navigation }) {
     return () => clearInterval(interval);
   }, [isPlaying, currentSound]);
 
-
   async function playAudio() {
     if (!selectedAudioUrl) return;
-  
+
     try {
       if (currentSound !== null) {
         const status = await currentSound.getStatusAsync();
-  
+
         if (status.isPlaying) {
           await currentSound.pauseAsync();
           setIsPlaying(false);
@@ -154,8 +152,6 @@ export default function StartScreen({ navigation }) {
       console.error("Playback failed", error);
     }
   }
-  
-  
 
   function updatePlaybackStatus(status) {
     setPlaybackStatus(status);
@@ -172,7 +168,7 @@ export default function StartScreen({ navigation }) {
     const totalSeconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   }
 
   async function seekAudio(value) {
@@ -245,11 +241,14 @@ export default function StartScreen({ navigation }) {
 
       const savedRecordings = await AsyncStorage.getItem("recordings");
       const recordingData = savedRecordings ? JSON.parse(savedRecordings) : [];
-      const newData = [...recordingData, { 
-        uri: newUri, 
-        name,
-        exampleIndex: selectedExampleIndex  // Save the selected example index
-      }];
+      const newData = [
+        ...recordingData,
+        {
+          uri: newUri,
+          name,
+          exampleIndex: selectedExampleIndex, // Save the selected example index
+        },
+      ];
       await AsyncStorage.setItem("recordings", JSON.stringify(newData));
 
       setSavedRecordingName(name);
@@ -258,6 +257,20 @@ export default function StartScreen({ navigation }) {
     } catch (error) {
       console.error("Saving recording failed", error);
     }
+  }
+  async function clearSelectedItem(
+    audioURL,
+    text,
+    exampleName,
+    index,
+    selectStatus
+  ) {
+    setSelectedAudioUrl(audioURL);
+    setCurrentText(text);
+    setSelectedExampleName(exampleName);
+    setSelectedExampleIndex(index);
+    setIsAudioSelected(selectStatus);
+    setPlaybackPosition(0);
   }
 
   return (
@@ -272,37 +285,39 @@ export default function StartScreen({ navigation }) {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollViewContainer}>
           <View style={styles.fixedExampleContainer}>
-            <TouchableOpacity
-              style={styles.selectButton}
-              onPress={() => setexampleModalVisible(true)}
-            >
-              <Ionicons
-                name="list"
-                size={24}
-                color="white"
-                style={styles.buttonIcon}
-              />
-              <Text style={styles.selectButtonText}>選取範例</Text>
-            </TouchableOpacity>
-
-            <Text
-              style={[
-                styles.exampleText,
-                { color: isWhite ? COLORS.darkText : COLORS.lightText },
-              ]}
-            >
-              範例: {selectedExampleName}
-            </Text>
-
-            <ScrollView style={styles.textScrollView}>
+            {selectedExampleName ? (
               <Text
                 style={[
-                  styles.selectedText,
+                  styles.exampleText,
                   { color: isWhite ? COLORS.darkText : COLORS.lightText },
                 ]}
               >
-                {currentText}
+                範例: {selectedExampleName}
               </Text>
+            ) : (
+              <Text
+                style={[
+                  styles.exampleText,
+                  { color: isWhite ? COLORS.darkText : COLORS.lightText },
+                ]}
+              >
+                範例
+              </Text>
+            )}
+
+            <ScrollView style={styles.textScrollView}>
+              {!isAudioSelected ? (
+                <Text style={{ color: "gray" }}>請先選擇範例</Text>
+              ) : (
+                <Text
+                  style={[
+                    styles.selectedText,
+                    { color: isWhite ? COLORS.darkText : COLORS.lightText },
+                  ]}
+                >
+                  {currentText}
+                </Text>
+              )}
             </ScrollView>
 
             <View style={styles.playerContainer}>
@@ -317,27 +332,65 @@ export default function StartScreen({ navigation }) {
                 thumbTintColor="white"
               />
               <View style={styles.timeContainer}>
-                <Text style={[styles.timeText, { color: isWhite ? COLORS.darkText : COLORS.lightText }]}>{formatTime(playbackPosition)}</Text>
-                <Text style={[styles.timeText, { color: isWhite ? COLORS.darkText : COLORS.lightText }]}>{formatTime(duration)}</Text>
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.playButton,
-                  !isAudioSelected && styles.disabledButton,
-                ]}
-                onPress={playAudio}
-                disabled={!isAudioSelected}
-              >
-                <Ionicons
-                  name={isPlaying ? "pause" : "play"}
-                  size={24}
-                  color="white"
-                  style={styles.buttonIcon}
-                />
-                <Text style={styles.buttonText}>
-                  {isPlaying ? "暫停" : "播放"}
+                <Text
+                  style={[
+                    styles.timeText,
+                    { color: isWhite ? COLORS.darkText : COLORS.lightText },
+                  ]}
+                >
+                  {formatTime(playbackPosition)}
                 </Text>
-              </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.timeText,
+                    { color: isWhite ? COLORS.darkText : COLORS.lightText },
+                  ]}
+                >
+                  {formatTime(duration)}
+                </Text>
+              </View>
+
+              <View style={styles.buttonContainer}>
+                <View style={styles.selectButtonWrapper}>
+                  <TouchableOpacity
+                    style={styles.selectButton}
+                    onPress={() => setexampleModalVisible(true)}
+                  >
+                    <Ionicons name="list" size={24} color="white" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.playButtonWrapper}>
+                  <TouchableOpacity
+                    style={[
+                      styles.playButton,
+                      !isAudioSelected && styles.disabledButton,
+                    ]}
+                    onPress={playAudio}
+                    disabled={!isAudioSelected}
+                  >
+                    <Ionicons
+                      name={isPlaying ? "pause" : "play"}
+                      size={24}
+                      color="white"
+                      style={styles.buttonIcon}
+                    />
+                    <Text style={styles.buttonText}>
+                      {isPlaying ? "暫停" : "播放"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <View>
+                  <TouchableOpacity
+                    style={[
+                      styles.selectButton,
+                      { backgroundColor: "crimson" },
+                    ]}
+                    onPress={() => clearSelectedItem(null, "", "", null, false)}
+                  >
+                    <Ionicons name="trash" size={24} color="white" />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </View>
 
@@ -346,7 +399,7 @@ export default function StartScreen({ navigation }) {
               style={[
                 styles.recordButton,
                 { opacity: 1 },
-                !isAudioSelected && styles.disabledButton,
+                !isAudioSelected && [styles.recordButton, { opacity: 0.3 }],
               ]}
               activeOpacity={1}
               onPress={isRecording ? stopRecording : startRecording}
@@ -432,6 +485,7 @@ export default function StartScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: "space-between",
   },
   safeArea: {
     flex: 1,
@@ -445,13 +499,12 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   selectButton: {
-    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     backgroundColor: COLORS.primary,
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 30,
-    marginBottom: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     elevation: 5,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -489,8 +542,10 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 20,
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginTop: 10,
   },
   // playButton: {
   //   flexDirection: "row",
@@ -550,13 +605,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   innerButton: {
-    backgroundColor: "red",
+    backgroundColor: "#ff453a",
     width: "90%",
     height: "90%",
     borderRadius: 35,
   },
   innerButtonPressed: {
-    backgroundColor: "red",
+    backgroundColor: "#ff453a",
     width: 30,
     height: 30,
     borderRadius: 6,
@@ -642,19 +697,19 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   playerContainer: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     marginTop: 20,
     marginBottom: 20,
   },
   progressBar: {
-    width: '100%',
+    width: "100%",
     height: 40,
   },
   timeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
     marginBottom: 10,
   },
   timeText: {
@@ -662,12 +717,27 @@ const styles = StyleSheet.create({
     ...FONTS.body,
   },
   playButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: COLORS.secondary,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 30,
-    marginTop: 10,
+    height: 50,
+    width: 120, // 設定一個固定寬度以保持一致性
+  },
+  playButtonWrapper: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  selectButtonWrapper: {
+    width: 50,
+    height: 50,
+  },
+  placeholderView: {
+    width: 50,
+    height: 50,
   },
 });

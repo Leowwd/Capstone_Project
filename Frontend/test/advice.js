@@ -15,7 +15,7 @@ phoneme_map = {
   8: "h", 9: "i", 10: "j", 11: "k", 12: "l", 13: "m", 14: "n", 
   15: "oʊ", 16: "p", 17: "s", 18: "t", 19: "t͡ʃ", 20: "u", 
   21: "v", 22: "w", 23: "z", 24: "æ", 25: "ð", 26: "ŋ", 
-  27: "a", 28: "ɔ", 29: "ɔɪ", 30: "ə", 31: "ɚ", 32: "ɛ", 33: "ɡ", 
+  27: "ɑ", 28: "ɔ", 29: "ɔɪ", 30: "ə", 31: "ɚ", 32: "ɛ", 33: "ɡ", 
   34: "ɪ", 35: "ɹ", 36: "ʃ", 37: "ʊ", 38: "ʌ", 39: "ʒ", 40: "θ"
 }
 
@@ -62,6 +62,49 @@ const videoSources = {
   '40': Asset.fromModule(require('../assets/animation/40.mp4'))
 };
 
+const videoSource = {
+  '1': Asset.fromModule(require('../assets/person/v1.mp4')),
+  '2': Asset.fromModule(require('../assets/person/v2.mp4')),
+  '3': Asset.fromModule(require('../assets/person/v3.mp4')),
+  '4': Asset.fromModule(require('../assets/person/v4.mp4')),
+  '5': Asset.fromModule(require('../assets/person/v5.mp4')),
+  '6': Asset.fromModule(require('../assets/person/v6.mp4')),
+  '7': Asset.fromModule(require('../assets/person/v7.mp4')),
+  '8': Asset.fromModule(require('../assets/person/v8.mp4')),
+  '9': Asset.fromModule(require('../assets/person/v9.mp4')),
+  '10': Asset.fromModule(require('../assets/person/v10.mp4')),
+  '11': Asset.fromModule(require('../assets/person/v11.mp4')), 
+  '12': Asset.fromModule(require('../assets/person/v12.mp4')),
+  '13': Asset.fromModule(require('../assets/person/v13.mp4')),
+  '14': Asset.fromModule(require('../assets/person/v14.mp4')),
+  '15': Asset.fromModule(require('../assets/person/v15.mp4')),
+  '16': Asset.fromModule(require('../assets/person/v16.mp4')),
+  '17': Asset.fromModule(require('../assets/person/v17.mp4')),
+  '18': Asset.fromModule(require('../assets/person/v18.mp4')),
+  '19': Asset.fromModule(require('../assets/person/v19.mp4')),
+  '20': Asset.fromModule(require('../assets/person/v20.mp4')),
+  '21': Asset.fromModule(require('../assets/person/v21.mp4')),
+  '22': Asset.fromModule(require('../assets/person/v22.mp4')),
+  '23': Asset.fromModule(require('../assets/person/v23.mp4')),
+  '24': Asset.fromModule(require('../assets/person/v24.mp4')),
+  '25': Asset.fromModule(require('../assets/person/v25.mp4')),
+  '26': Asset.fromModule(require('../assets/person/v26.mp4')),
+  '27': Asset.fromModule(require('../assets/person/v27.mp4')),
+  '28': Asset.fromModule(require('../assets/person/v28.mp4')),
+  '29': Asset.fromModule(require('../assets/person/v29.mp4')),
+  '30': Asset.fromModule(require('../assets/person/v30.mp4')),
+  '31': Asset.fromModule(require('../assets/person/v31.mp4')),
+  '32': Asset.fromModule(require('../assets/person/v32.mp4')),
+  '33': Asset.fromModule(require('../assets/person/v33.mp4')),
+  '34': Asset.fromModule(require('../assets/person/v34.mp4')),
+  '35': Asset.fromModule(require('../assets/person/v35.mp4')),
+  '36': Asset.fromModule(require('../assets/person/v36.mp4')),
+  '37': Asset.fromModule(require('../assets/person/v37.mp4')),
+  '38': Asset.fromModule(require('../assets/person/v38.mp4')),
+  '39': Asset.fromModule(require('../assets/person/v39.mp4')),
+  '40': Asset.fromModule(require('../assets/person/v40.mp4'))
+};
+
 export default function Advice({ data, onClose }) {
   const { isWhite } = useContext(manage_backgroundColor);
   
@@ -82,9 +125,14 @@ export default function Advice({ data, onClose }) {
   useEffect(() => {
     async function loadAssets() {
       await Promise.all(Object.values(videoSources).map(asset => asset.downloadAsync()));
+      await Promise.all(Object.values(videoSource).map(asset => asset.downloadAsync()));
     }
     loadAssets();
   }, []);
+
+  const getPhonemeNumber = (phoneme) => {
+    return Object.keys(phoneme_map).find(key => phoneme_map[key] === phoneme);
+  };
 
 
   const getMsgState = () => {
@@ -94,87 +142,88 @@ export default function Advice({ data, onClose }) {
     return "你真棒!";
   };
 
-  const phonemeKeys = Object.keys(data.feedback);
-  const missingPhonemes = phonemeKeys.filter(key => data.feedback[key].error_type === 'missing');
-  const extraPhonemes = phonemeKeys.filter(key => data.feedback[key].error_type === 'extra');
+  const feedbackData = data.feedback; // 這裡 data 是你獲得的數據
 
-  const renderPhonemeButtons = (phonemeList) => {
-    if (phonemeList.length === 0) {
-      return <Text style={styles.noErrorText}>無明顯錯誤</Text>;
-    }
-    return phonemeList.map((phoneme, index) => (
-      <TouchableOpacity
-        key={`${phoneme}-${index}`}
-        style={[styles.phonemeButton, selectedPhoneme === phoneme && styles.selectedPhonemeButton]}
-        onPress={() => setSelectedPhoneme(phoneme)}
-      >
-        <Text style={styles.phonemeButtonText}>{index + 1}</Text>
-      </TouchableOpacity>
-    ));
-  };
+// 過濾 missing 和 extra 的音素
+const missingPhonemes = feedbackData.filter(item => item.error_type === 'missing');
+const extraPhonemes = feedbackData.filter(item => item.error_type === 'extra');
 
-  const getVideoSource = () => {
-    if (!selectedPhoneme) {
-      console.warn("No phoneme selected");
-      return null;
+// 渲染 missing 和 extra 音素按鈕
+const renderPhonemeButtons = () => {
+  const phonemes = errorType === 'missing' ? missingPhonemes : extraPhonemes;
+  
+  if (phonemes.length === 0) {
+    return <Text style={styles.noErrorText}>無明顯錯誤</Text>;
+  }
+  
+  return phonemes.map((item, index) => (
+    <TouchableOpacity
+      key={`${item.phoneme}-${index}`}
+      style={[styles.phonemeButton, selectedPhoneme === item.phoneme && styles.selectedPhonemeButton]}
+      onPress={() => setSelectedPhoneme(item.phoneme)}
+    >
+      <Text style={styles.phonemeButtonText}>{item.phoneme}</Text>
+    </TouchableOpacity>
+  ));
+};
+
+  const handleVideoOption = (type, phoneme) => {
+    console.log(`處理 ${type} 影片選項，音素: ${phoneme}`);
+    
+    if (!phoneme) {
+      console.warn("沒有選擇音素");
+      Alert.alert("錯誤", "未選擇音素");
+      return;
     }
     
-    const phoneme = data.feedback[selectedPhoneme]?.phoneme;
-    if (!phoneme) {
-      console.warn(`No phoneme data found for selected phoneme: ${selectedPhoneme}`);
-      return null;
-    }
-  
-    const phonemeNumber = Object.keys(phoneme_map).find(key => phoneme_map[key] === phoneme);
+    const phonemeNumber = getPhonemeNumber(phoneme);
     
     if (!phonemeNumber) {
-      console.warn(`No video found for phoneme: ${phoneme}`);
-      return null;
+      console.warn(`未找到音素對應的影片: ${phoneme}`);
+      Alert.alert("錯誤", "無法找到對應的影片");
+      return;
     }
     
-    const videoFile = videoSources[phonemeNumber];
+    const videoSrc = type === 'animation' ? videoSources : videoSource;
+    const videoFile = videoSrc[phonemeNumber];
+    
     if (!videoFile) {
-      console.warn(`No video file found for phoneme number: ${phonemeNumber}`);
-      return null;
+      console.warn(`未找到音素編號對應的影片文件: ${phonemeNumber}`);
+      Alert.alert("錯誤", "無法找到視頻文件");
+      return;
     }
-  
-    console.log("Video source URI:", videoFile.uri);
-    return videoFile.uri;
+    
+    setVideoData(videoFile.uri);
+    setShowVideo(true);
   };
-
-  const handleVideoOption = async () => {
-    const source = getVideoSource();
-    if (source) {
-      console.log("Navigating to FullScreenVideo with source:", source);
-      setVideoData(source);
-      setShowVideo(true)
-    } else {
-      console.warn("Video source not found");
-      // 可以在這裡添加一個警告給用戶
-      Alert.alert("錯誤", "無法找到視頻源");
-    }
-  };
-  
-  
   
   const renderWeakPhonemeButtons = () => {
-    if (data.weak_phonemes.length === 0) {
-      return <Text style={styles.noErrorText}>無明顯錯誤</Text>;
+    if (!data.weak_phonemes || Object.keys(data.weak_phonemes).length === 0) {
+      return <Text style={styles.noErrorText}>無較弱音素</Text>;
     }
-    return data.weak_phonemes.map((phonemes, index) => (
+    return Object.entries(data.weak_phonemes).map(([key, phoneme]) => (
       <TouchableOpacity
-        key={`${phonemes}-${index}`}
-        style={[styles.phonemeButton, selectedWeakPhoneme === phonemes && styles.selectedPhonemeButton]}
-        onPress={() => setSelectedWeakPhoneme(phonemes)}
+        key={key}
+        style={[styles.phonemeButton, selectedWeakPhoneme === key && styles.selectedPhonemeButton]}
+        onPress={() => setSelectedWeakPhoneme(key)}
       >
-        <Text style={styles.phonemeButtonText}>{phonemes}</Text>
+        <Text style={styles.phonemeButtonText}>{phoneme}</Text>
       </TouchableOpacity>
     ));
   };
   
   const renderFeedback = () => {
-    if (!selectedPhoneme) return null;
-    const feedback = data.feedback[selectedPhoneme];
+
+    if (!selectedPhoneme) {
+      return <Text style={styles.noErrorText}>請選擇一個音素</Text>;
+    }
+
+    const feedback = feedbackData.find(item => item.phoneme === selectedPhoneme);
+
+    if (!feedback) {
+      return <Text style={styles.noErrorText}>無法找到該音素的反饋信息</Text>;
+    }
+    
     return (
       <View style={styles.feedbackContainer}>
         <Text style={styles.feedbackText}>錯誤音素: {feedback.phoneme}</Text>
@@ -183,10 +232,10 @@ export default function Advice({ data, onClose }) {
         <Text style={styles.feedbackText}>舌位: {feedback.correction.tongue_position}</Text>
         <Text style={styles.feedbackText}>發音: {feedback.correction.pronunciation}</Text>
         <View style={styles.videoOptionsContainer}>
-          <TouchableOpacity style={styles.videoOptionButton} onPress={() => handleVideoOption('animation')}>
+          <TouchableOpacity style={styles.videoOptionButton} onPress={() => handleVideoOption('animation', feedback?.phoneme)}>
             <Text style={styles.videoOptionButtonText}>觀看動畫</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.videoOptionButton} onPress={() => handleVideoOption('real')}>
+          <TouchableOpacity style={styles.videoOptionButton} onPress={() => handleVideoOption('person', feedback?.phoneme)}>
             <Text style={styles.videoOptionButtonText}>觀看真人影片</Text>
           </TouchableOpacity>
         </View>
@@ -195,20 +244,43 @@ export default function Advice({ data, onClose }) {
   };
 
   const renderWeakPhonemeInfo = () => {
-    if (!selectedWeakPhoneme) return null;
-    const info = data.phoneme_info[selectedWeakPhoneme];
-    return (
-      <View style={styles.feedbackContainer}>
-        <Text style={styles.feedbackTitle}>音素資訊:</Text>
-        <Text style={styles.feedbackText}>
-          口腔位置: {info["口腔位置"]}{"\n"}
-          常見錯誤: {info["常見錯誤"]}{"\n"}
-          發音: {info["發音"]}{"\n"}
-          舌位: {info["舌位"]}
-        </Text>
+  if (!selectedWeakPhoneme || !data.weak_phonemes[selectedWeakPhoneme]) {
+    return <Text style={styles.noErrorText}>請選擇一個音素</Text>;
+  }
+  
+  const weakPhoneme = data.weak_phonemes[selectedWeakPhoneme];
+  const info = data.phoneme_info[weakPhoneme];
+  
+  if (!info) {
+    return <Text style={styles.noErrorText}>無法找到該音素的資訊</Text>;
+  }
+
+  return (
+    <View style={styles.feedbackContainer}>
+      <Text style={styles.feedbackTitle}>音素資訊: {weakPhoneme}</Text>
+      <Text style={styles.feedbackText}>
+        口腔位置: {info["口腔位置"]}{"\n"}
+        常見錯誤: {info["常見錯誤"]}{"\n"}
+        發音: {info["發音"]}{"\n"}
+        舌位: {info["舌位"]}
+      </Text>
+      <View style={styles.videoOptionsContainer}>
+        <TouchableOpacity 
+          style={styles.videoOptionButton} 
+          onPress={() => handleVideoOption('animation', weakPhoneme)}
+        >
+          <Text style={styles.videoOptionButtonText}>觀看動畫</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.videoOptionButton} 
+          onPress={() => handleVideoOption('person', weakPhoneme)}
+        >
+          <Text style={styles.videoOptionButtonText}>觀看真人影片</Text>
+        </TouchableOpacity>
       </View>
-    );
-  };
+    </View>
+  );
+};
 
   return (
     <LinearGradient
@@ -266,6 +338,25 @@ export default function Advice({ data, onClose }) {
               </ScrollView>
               <ScrollView style={styles.scrollView}>
                 {renderFeedback()}
+                <Modal
+                  animationType="slide"
+                  transparent={true}
+                  visible={showVideo}
+                  onRequestClose={() => {
+                    setShowVideo(false);
+                    setVideoData(null);
+                  }}
+                >
+                  {videoData && (
+                    <FullScreenVideo 
+                      videoSource={videoData} 
+                      onClose={() => {
+                        setShowVideo(false);
+                        setVideoData(null);
+                      }} 
+                    />
+                  )}
+                </Modal>
               </ScrollView>
               <TouchableOpacity style={styles.closeButton} onPress={() => {
                 setShowPhonemes(false);
@@ -288,6 +379,25 @@ export default function Advice({ data, onClose }) {
               </ScrollView>
               <ScrollView style={styles.scrollView}>
                 {renderWeakPhonemeInfo()}
+                  <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={showVideo}
+                    onRequestClose={() => {
+                      setShowVideo(false);
+                      setVideoData(null);
+                    }}
+                  >
+                    {videoData && (
+                      <FullScreenVideo 
+                        videoSource={videoData} 
+                        onClose={() => {
+                          setShowVideo(false);
+                          setVideoData(null);
+                        }} 
+                      />
+                    )}
+                  </Modal>
               </ScrollView>
               <TouchableOpacity style={styles.closeButton} onPress={() => {
                 setShowWeakPhonemes(false);
@@ -297,26 +407,6 @@ export default function Advice({ data, onClose }) {
               </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={showVideo}
-          onRequestClose={() => {
-            setShowVideo(false);
-            setVideoData(null);
-          }}
-        >
-          {videoData && (
-            <FullScreenVideo 
-              videoSource={videoData} 
-              onClose={() => {
-                setShowVideo(false);
-                setVideoData(null);
-              }} 
-            />
-          )}
         </Modal>
       </SafeAreaView>
     </LinearGradient>

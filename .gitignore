@@ -1,2 +1,6 @@
-/Backend
-/README.md
+/Backend/audio_server/__pycache__
+/Backend/venv
+/Backend/.env
+/Frontend/node_modules
+/Frontend/.expo
+/Frontend/.vscode

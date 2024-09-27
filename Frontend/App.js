@@ -116,11 +116,6 @@ export default function App() {
             component={MainStack}
             options={{ headerShown: false }}
           />
-          <Stack.Screen 
-            name="FullScreenVideo" 
-            component={FullScreenVideo} 
-            options={{ headerShown: false }}
-          />
         </Stack.Navigator>
 
         {/* <BottomTab.Navigator
