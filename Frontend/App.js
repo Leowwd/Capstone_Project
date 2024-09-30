@@ -59,31 +59,6 @@ function MainStack() {
         }}
       />
     </BottomTab.Navigator>
-
-    // <Stack.Navigator
-    //   initialRouteName="Welcome"
-    //   screenOptions={{
-    //     headerStyle: {
-    //       backgroundColor: "#1a73e8",
-    //     },
-    //     headerTintColor: "#fff",
-    //     headerTitleStyle: {
-    //       fontWeight: "bold",
-    //     },
-    //   }}
-    // >
-    //   <Stack.Screen
-    //     name="Welcome"
-    //     component={WelcomeScreen}
-    //     options={{ headerShown: false }}
-    //   />
-    //   <Stack.Screen
-    //     name="首頁"
-    //     component={HomeScreen}
-    //     options={{ headerBackVisible: false }}
-    //   />
-    //   <Stack.Screen name="Start" component={StartScreen} />
-    // </Stack.Navigator>
   );
 }
 
@@ -92,7 +67,7 @@ export default function App() {
     <BackgroundColorProvider>
       <NavigationContainer style={styles}>
         <Stack.Navigator
-          initialRouteName=""
+          initialRouteName="Welcome"
           screenOptions={{
             headerStyle: {
               backgroundColor: "#1a73e8",
@@ -117,45 +92,6 @@ export default function App() {
             options={{ headerShown: false }}
           />
         </Stack.Navigator>
-
-        {/* <BottomTab.Navigator
-          initialRouteName="主頁面"
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: "#1a73e8",
-            },
-            headerTintColor: "#fff",
-            headerTitleStyle: {
-              fontWeight: "bold",
-            },
-          }}
-        >
-          <BottomTab.Screen
-            name="主頁面"
-            component={MainStack}
-            options={{
-              headerShown: false,
-              tabBarIcon: () => <Ionicons name="grid-outline" size={20} />,
-              tabBarActiveTintColor: "#1a73e8",
-            }}
-          />
-          <BottomTab.Screen
-            name="最近錄音"
-            component={RecordingListScreen}
-            options={{
-              tabBarIcon: () => <Ionicons name="time-outline" size={20} />,
-              tabBarActiveTintColor: "#1a73e8",
-            }}
-          />
-          <BottomTab.Screen
-            name="設定"
-            component={Setting}
-            options={{
-              tabBarIcon: () => <Ionicons name="settings-outline" size={20} />,
-              tabBarActiveTintColor: "#1a73e8",
-            }}
-          />
-        </BottomTab.Navigator> */}
       </NavigationContainer>
     </BackgroundColorProvider>
   );
