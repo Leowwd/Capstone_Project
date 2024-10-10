@@ -13,16 +13,18 @@ import {
 } from "react-native";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
-import axios from 'axios';
+import axios from "axios";
 // import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { manage_backgroundColor } from "./manage_backgroundColor";
-import Advice from "./advice"; 
+import { COLORS, FONTS } from "./theme";
+import Advice from "./advice";
+import { useThreshold } from "./ThresholdContext";
 
-export default function RecordingListScreen({navigation}) {
+export default function RecordingListScreen({ navigation }) {
   const [recordingData, setRecordingData] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [currentEditingIndex, setCurrentEditingIndex] = useState(null);
@@ -34,6 +36,10 @@ export default function RecordingListScreen({navigation}) {
   const [showEmptyPrompt, setShowEmptyPrompt] = useState(false);
   const [adviceData, setAdviceData] = useState(null);
   const [showAdvice, setShowAdvice] = useState(false);
+  const [isAnyItemExpanded, setIsAnyItemExpanded] = useState(false);
+  const [currentExpandedIndex, setCurrentExpandedIndex] = useState(null);
+
+  const { threshold } = useThreshold();
 
   const toggleExpand = (index) => {
     setExpandedItems((prev) => {
@@ -42,6 +48,11 @@ export default function RecordingListScreen({navigation}) {
         updatedState[key] = false;
       });
       updatedState[index] = !prev[index];
+
+      setCurrentExpandedIndex(updatedState[index] ? index : null);
+
+      const hasExpanded = Object.values(updatedState).some((value) => value);
+      setIsAnyItemExpanded(hasExpanded);
       return updatedState;
     });
   };
@@ -147,10 +158,10 @@ export default function RecordingListScreen({navigation}) {
           })
         );
         setPlayingStates({}); // 清空狀態
-  
+
         const sound = new Audio.Sound();
         await sound.loadAsync({ uri: recordingData[index].uri });
-  
+
         sound.setOnPlaybackStatusUpdate(async (status) => {
           if (status.isLoaded) {
             setProgress((prev) => ({
@@ -166,7 +177,7 @@ export default function RecordingListScreen({navigation}) {
             console.error(`Audio播放錯誤: ${status.error}`);
           }
         });
-  
+
         await sound.playAsync();
         setPlayingStates((prev) => ({
           ...prev,
@@ -178,26 +189,30 @@ export default function RecordingListScreen({navigation}) {
     }
   }
 
-  async function handleSharing(index) {
+  async function handleSharing() {
+    if (currentExpandedIndex === null) return;
     try {
-      const uri = recordingData[index].uri;
-      
+      const uri = recordingData[currentExpandedIndex].uri;
+
       // Read the file as base64
       const base64Audio = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
-      
+
       // Prepare the data to send
       const data = {
         audio_base64: base64Audio,
-        index: recordingData[index].exampleIndex,
-        threshold: 0.4,
+        index: recordingData[currentExpandedIndex].exampleIndex,
+        threshold: threshold,
       };
-      
+
       // Send to backend
-      const response = await axios.post('http://172.20.10.11:8080/upload', data);
-      
-      console.log('Audio sent successfully:', response.data);
+      const response = await axios.post(
+        "http://192.168.0.79:8080/upload",
+        data
+      );
+
+      console.log("Audio sent successfully:", response.data);
       setAdviceData(response.data);
 
       Alert.alert(
@@ -211,7 +226,6 @@ export default function RecordingListScreen({navigation}) {
         ],
         { cancelable: false }
       );
-
     } catch (error) {
       console.error("處理錄音失敗", error);
     }
@@ -310,28 +324,47 @@ export default function RecordingListScreen({navigation}) {
                     />
                     {/* 在Slider下面顯示進度的時間 */}
                     <View style={styles.Duration}>
-                      <Text style={{ color: isWhite ? "#000000" : "#FFFFFF", fontSize: 16 }}>
-                        {formatDuration(progress[index] * recordingData[index].duration || 0)}
+                      <Text
+                        style={{
+                          color: isWhite ? "#000000" : "#FFFFFF",
+                          fontSize: 16,
+                        }}
+                      >
+                        {formatDuration(
+                          progress[index] * recordingData[index].duration || 0
+                        )}
                       </Text>
-                      <Text style={{ color: isWhite ? "#000000" : "#FFFFFF", fontSize: 16, textAlign: "right" }}>
+                      <Text
+                        style={{
+                          color: isWhite ? "#000000" : "#FFFFFF",
+                          fontSize: 16,
+                          textAlign: "right",
+                        }}
+                      >
                         {formatDuration(recordingItem.duration)}
                       </Text>
                     </View>
-                    
+
                     <View style={styles.expandedButtonsContainer}>
                       <View style={styles.buttonGroup}>
-                        <TouchableOpacity
+                        {/* <TouchableOpacity
                           onPress={() => handleSharing(index)}
                           style={styles.actionBtn}
                         >
-                          <Ionicons name="share-outline" size={30} color="#007AFF" />
-                        </TouchableOpacity>
+                          <Ionicons
+                            name="share-outline"
+                            size={30}
+                            color="#007AFF"
+                          />
+                        </TouchableOpacity> */}
                         <TouchableOpacity
                           onPress={() => playRecording(index)}
                           style={styles.actionBtn}
                         >
                           <Ionicons
-                            name={playingStates[index]?.isPlaying ? "pause" : "play"}
+                            name={
+                              playingStates[index]?.isPlaying ? "pause" : "play"
+                            }
                             size={30}
                             color="#007AFF"
                           />
@@ -353,6 +386,13 @@ export default function RecordingListScreen({navigation}) {
         </ScrollView>
       )}
 
+      {isAnyItemExpanded && (
+        <View style={styles.uploadContainer}>
+          <TouchableOpacity style={styles.uploadButton} onPress={handleSharing}>
+            <Text style={styles.uploadButtonText}>送出分析</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {showAdvice && (
         <Modal
@@ -423,8 +463,8 @@ const styles = StyleSheet.create({
     color: "#8E8E93",
     marginLeft: 10,
   },
-  Duration:{
-    flexDirection: "row", 
+  Duration: {
+    flexDirection: "row",
     justifyContent: "space-between",
   },
   buttonGroup: {
@@ -506,5 +546,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  uploadContainer: {
+    position: "absolute",
+    bottom: 60, // 在 BottomTab 上方
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.secondary,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 30,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  uploadButtonText: {
+    color: "white",
+    fontSize: 18,
+    ...FONTS.button,
   },
 });

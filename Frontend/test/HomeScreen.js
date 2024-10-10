@@ -5,22 +5,21 @@ import {
   TouchableOpacity,
   Animated,
   View,
+  Image,
+  ImageBackground,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { manage_backgroundColor } from "./manage_backgroundColor";
 import { COLORS, FONTS } from "./theme";
+import MainFunctionBtn from "./MainFunctionBtn";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen({ navigation }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(100)).current;
   const { isWhite } = useContext(manage_backgroundColor);
-
-  // navigation.reset({
-  //   index: 0,
-  //   routes: [{ name: "首頁" }],
-  // });
 
   useFocusEffect(
     React.useCallback(() => {
@@ -54,31 +53,51 @@ export default function HomeScreen({ navigation }) {
       }
       style={styles.container}
     >
-      <Animated.Text
-        style={[
-          styles.title,
-          {
-            opacity: fadeAnim,
-            color: isWhite ? COLORS.darkText : COLORS.lightText,
-          },
-        ]}
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
       >
-        音無虛發
-      </Animated.Text>
-      <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate("Main")}
-        >
-          <Ionicons
-            name="mic-outline"
-            size={24}
-            color="white"
-            style={styles.buttonIcon}
-          />
-          <Text style={styles.buttonText}>Start</Text>
-        </TouchableOpacity>
-      </Animated.View>
+        <SafeAreaView>
+          <Animated.Text
+            style={[
+              styles.title,
+              {
+                opacity: fadeAnim,
+                color: isWhite ? COLORS.darkText : COLORS.lightText,
+              },
+            ]}
+          >
+            音無虛發
+          </Animated.Text>
+          <View style={styles.buttonContainer}>
+            <MainFunctionBtn
+              iconName="mic-outline"
+              text="開始練習"
+              path="Main"
+            />
+            <MainFunctionBtn
+              iconName="help-outline"
+              text="Guide"
+              path="Guide"
+            />
+          </View>
+          <View style={[styles.buttonContainer, { marginTop: 0 }]}>
+            <MainFunctionBtn
+              iconName="information-circle-outline"
+              text="About"
+              path="About"
+            />
+            <MainFunctionBtn
+              iconName="trophy-outline"
+              text="Credit"
+              path="Credit"
+            />
+          </View>
+        </SafeAreaView>
+      </View>
     </LinearGradient>
   );
 }
@@ -90,32 +109,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
-    ...FONTS.h1,
-    marginBottom: 50,
+    fontSize: 48,
+    justifyContent: "center",
+    alignItems: "center",
+    textAlign: "center",
+    fontWeight: "bold",
+    fontFamily: "Arial",
+    color: COLORS.primary,
     textTransform: "uppercase",
     letterSpacing: 2,
     textShadowColor: "rgba(0, 0, 0, 0.1)",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
-  menuButton: {
+  buttonContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.primary,
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 30,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  buttonIcon: {
-    marginRight: 10,
-  },
-  buttonText: {
-    color: "white",
-    ...FONTS.button,
+    justifyContent: "space-around",
+    marginTop: 20,
   },
 });
