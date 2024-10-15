@@ -5,3 +5,6 @@
 /Frontend/.expo
 /Frontend/.vscode
 /Backend/audio_server/static/audio
+/Backend/audio_server/static/audio/
+env
+test.ipynb
