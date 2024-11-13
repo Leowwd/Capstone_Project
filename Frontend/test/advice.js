@@ -372,7 +372,7 @@ export default function Advice({ data, onClose }) {
               { color: isWhite ? COLORS.darkText : COLORS.lightText },
             ]}
           >
-            解析结果: {getMsgState()}
+            分析結果: {getMsgState()}
           </Text>
           <Text
             style={[

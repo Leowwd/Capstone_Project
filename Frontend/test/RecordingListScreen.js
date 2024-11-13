@@ -38,6 +38,7 @@ export default function RecordingListScreen({ navigation }) {
   const [showAdvice, setShowAdvice] = useState(false);
   const [isAnyItemExpanded, setIsAnyItemExpanded] = useState(false);
   const [currentExpandedIndex, setCurrentExpandedIndex] = useState(null);
+  const [savedAnalysisResults, setSavedAnalysisResults] = useState({});
 
   const { threshold } = useThreshold();
 
@@ -89,6 +90,12 @@ export default function RecordingListScreen({ navigation }) {
   async function loadRecordings() {
     try {
       const savedRecordings = await AsyncStorage.getItem("recordings");
+      const savedResults = await AsyncStorage.getItem("analysisResults");
+      
+      if (savedResults) {
+        setSavedAnalysisResults(JSON.parse(savedResults));
+      }
+      
       if (savedRecordings) {
         const parsedRecordings = JSON.parse(savedRecordings);
         const updatedRecordings = await Promise.all(
@@ -212,18 +219,16 @@ export default function RecordingListScreen({ navigation }) {
         data
       );
 
-      console.log("Audio sent successfully:", response.data);
+      // console.log("Audio sent successfully:", response.data);
+
+      // 保存分析結果
+      await saveAnalysisResult(currentExpandedIndex, response.data);
       setAdviceData(response.data);
 
       Alert.alert(
-        "傳出成功",
-        "請稍後解析...",
-        [
-          {
-            text: "確定",
-            onPress: () => setShowAdvice(true),
-          },
-        ],
+        "分析完成",
+        "請查看分析結果",
+        [{ text: "確定", onPress: () => setShowAdvice(true) }],
         { cancelable: false }
       );
     } catch (error) {
@@ -233,12 +238,14 @@ export default function RecordingListScreen({ navigation }) {
 
   async function deleteRecording(index) {
     try {
+      // 刪除錄音文件
       const newRecordingData = [...recordingData];
       await FileSystem.deleteAsync(newRecordingData[index].uri);
       newRecordingData.splice(index, 1);
       setRecordingData(newRecordingData);
       saveRecordings(newRecordingData);
 
+      // 處理播放狀態
       if (playingStates[index] && playingStates[index].sound) {
         await playingStates[index].sound.unloadAsync();
       }
@@ -252,6 +259,24 @@ export default function RecordingListScreen({ navigation }) {
         delete newProgress[index];
         return newProgress;
       });
+
+      // 處理分析結果
+      const newSavedResults = { ...savedAnalysisResults };
+      // 刪除當前索引的結果
+      delete newSavedResults[index];
+      // 重新排序後面的結果
+      Object.keys(newSavedResults)
+        .map(Number)
+        .filter(key => key > index)
+        .forEach(key => {
+          newSavedResults[key - 1] = newSavedResults[key];
+          delete newSavedResults[key];
+        });
+      
+      // 更新 AsyncStorage 和狀態
+      await AsyncStorage.setItem("analysisResults", JSON.stringify(newSavedResults));
+      setSavedAnalysisResults(newSavedResults);
+
     } catch (error) {
       console.error("刪除錄音失敗", error);
     }
@@ -269,6 +294,24 @@ export default function RecordingListScreen({ navigation }) {
     setRecordingData(updatedRecordingData);
     saveRecordings(updatedRecordingData);
     setIsEditing(false);
+  }
+
+  async function saveAnalysisResult(index, result) {
+    try {
+      const newResults = {
+        ...savedAnalysisResults,
+        [index]: result
+      };
+      await AsyncStorage.setItem("analysisResults", JSON.stringify(newResults));
+      setSavedAnalysisResults(newResults);
+    } catch (error) {
+      console.error("保存分析結果失敗", error);
+    }
+  }
+
+  function showSavedAnalysis(index) {
+    setAdviceData(savedAnalysisResults[index]);
+    setShowAdvice(true);
   }
 
   return (
@@ -291,14 +334,24 @@ export default function RecordingListScreen({ navigation }) {
                 <View style={styles.recordingHeader}>
                   <View style={styles.recordingInfo}>
                     {!expandedItems[index] ? (
-                      <Text style={styles.recordingText}>
-                        {recordingItem.name}
-                      </Text>
-                    ) : (
-                      <TouchableOpacity onPress={() => startEditing(index)}>
+                      <View style={styles.nameContainer}>
                         <Text style={styles.recordingText}>
                           {recordingItem.name}
                         </Text>
+                        {savedAnalysisResults[index] && (
+                          <Text style={styles.analyzedTag}>已分析</Text>
+                        )}
+                      </View>
+                    ) : (
+                      <TouchableOpacity onPress={() => startEditing(index)}>
+                        <View style={styles.nameContainer}>
+                          <Text style={styles.recordingText}>
+                            {recordingItem.name}
+                          </Text>
+                          {savedAnalysisResults[index] && (
+                            <Text style={styles.analyzedTag}>已分析</Text>
+                          )}
+                        </View>
                       </TouchableOpacity>
                     )}
                     <Text style={styles.recordingDate}>
@@ -388,9 +441,24 @@ export default function RecordingListScreen({ navigation }) {
 
       {isAnyItemExpanded && (
         <View style={styles.uploadContainer}>
-          <TouchableOpacity style={styles.uploadButton} onPress={handleSharing}>
+          {/* <TouchableOpacity style={styles.uploadButton} onPress={handleSharing}>
             <Text style={styles.uploadButtonText}>送出分析</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
+          {savedAnalysisResults[currentExpandedIndex] ? (
+            <TouchableOpacity 
+              style={[styles.uploadButton, styles.viewResultButton]}
+              onPress={() => showSavedAnalysis(currentExpandedIndex)}
+            >
+              <Text style={styles.uploadButtonText}>查看分析結果</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={styles.uploadButton}
+              onPress={handleSharing}
+            >
+              <Text style={styles.uploadButtonText}>送出分析</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -571,5 +639,22 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 18,
     ...FONTS.button,
+  },
+  viewResultButton: {
+    backgroundColor: COLORS.primary, // 使用不同的顏色區分
+  },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  analyzedTag: {
+    color: '#2ecc71',
+    fontSize: 14,
+    fontWeight: 'bold',
+    backgroundColor: 'rgba(46, 204, 113, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
 });
