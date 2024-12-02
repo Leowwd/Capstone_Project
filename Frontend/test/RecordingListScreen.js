@@ -100,24 +100,40 @@ export default function RecordingListScreen({ navigation }) {
         const parsedRecordings = JSON.parse(savedRecordings);
         const updatedRecordings = await Promise.all(
           parsedRecordings.map(async (recording) => {
-            if (!recording.date) {
-              recording.date = new Date().toISOString();
-            }
+            try {
+              if (!recording.date) {
+                recording.date = new Date().toISOString();
+              }
 
-            if (!recording.duration) {
-              const info = await FileSystem.getInfoAsync(recording.uri);
-              const sound = new Audio.Sound();
-              await sound.loadAsync({ uri: recording.uri });
-              const status = await sound.getStatusAsync();
-              await sound.unloadAsync();
-              recording.duration = status.durationMillis;
+              if (!recording.duration) {
+                const info = await FileSystem.getInfoAsync(recording.uri);
+                if (!info.exists) {
+                  console.warn(`文件不存在：${recording.uri}`);
+                  return null;
+                }
+                
+                const sound = new Audio.Sound();
+                try {
+                  await sound.loadAsync({ uri: recording.uri });
+                  const status = await sound.getStatusAsync();
+                  recording.duration = status.durationMillis;
+                  await sound.unloadAsync();
+                } catch (error) {
+                  console.warn(`音頻加載失敗：${error.message}`);
+                  return null;
+                }
+              }
+              return recording;
+            } catch (error) {
+              console.warn(`處理錄音失敗：${error.message}`);
+              return null;
             }
-            return recording;
           })
         );
 
-        setRecordingData(updatedRecordings);
-        setShowEmptyPrompt(updatedRecordings.length === 0);
+        const validRecordings = updatedRecordings.filter(recording => recording !== null);
+        setRecordingData(validRecordings);
+        setShowEmptyPrompt(validRecordings.length === 0);
       } else {
         setShowEmptyPrompt(true);
       }
@@ -137,64 +153,90 @@ export default function RecordingListScreen({ navigation }) {
 
   async function playRecording(index) {
     try {
+      const recording = recordingData[index];
+      if (!recording || !recording.uri) {
+        console.warn('無效的錄音數據');
+        return;
+      }
+
+      const fileInfo = await FileSystem.getInfoAsync(recording.uri);
+      if (!fileInfo.exists) {
+        console.warn('錄音文件不存在');
+        return;
+      }
+
       const currentPlaying = playingStates[index];
       if (currentPlaying && currentPlaying.sound) {
         if (currentPlaying.isPlaying) {
-          // 如果正在播放，則暫停
+          // 暫停播放
           await currentPlaying.sound.pauseAsync();
           setPlayingStates((prev) => ({
             ...prev,
             [index]: { ...prev[index], isPlaying: false },
           }));
         } else {
-          // 如果已暫停，則恢復播放
+          // 恢復播放
           await currentPlaying.sound.playAsync();
           setPlayingStates((prev) => ({
             ...prev,
             [index]: { ...prev[index], isPlaying: true },
           }));
+          updateProgress(currentPlaying.sound, index);
         }
       } else {
-        // 如果沒有播放，則開始播放
-        // 卸載所有其他正在播放的音頻
-        await Promise.all(
-          Object.entries(playingStates).map(async ([key, value]) => {
-            if (value && value.sound) {
-              await value.sound.unloadAsync();
-            }
-          })
+        const { sound, status } = await Audio.Sound.createAsync(
+          { uri: recording.uri },
+          { shouldPlay: true },
+          onPlaybackStatusUpdate(index)
         );
-        setPlayingStates({}); // 清空狀態
-
-        const sound = new Audio.Sound();
-        await sound.loadAsync({ uri: recordingData[index].uri });
-
-        sound.setOnPlaybackStatusUpdate(async (status) => {
-          if (status.isLoaded) {
-            setProgress((prev) => ({
-              ...prev,
-              [index]: status.positionMillis / status.durationMillis,
-            }));
-            if (status.didJustFinish) {
-              sound.unloadAsync();
-              setPlayingStates((prev) => ({ ...prev, [index]: null }));
-              setProgress((prev) => ({ ...prev, [index]: 0 }));
-            }
-          } else if (status.error) {
-            console.error(`Audio播放錯誤: ${status.error}`);
-          }
-        });
-
-        await sound.playAsync();
         setPlayingStates((prev) => ({
           ...prev,
           [index]: { sound, isPlaying: true },
         }));
+        updateProgress(sound, index);
       }
     } catch (error) {
       console.error("播放錄音失敗", error);
+      Alert.alert("錯誤", "無法播放該錄音");
     }
   }
+
+  // 新增的進度更新函數
+  const onPlaybackStatusUpdate = (index) => (status) => {
+    if (status.isLoaded && status.isPlaying) {
+      const progress = status.positionMillis / status.durationMillis;
+      setProgress((prev) => ({
+        ...prev,
+        [index]: progress,
+      }));
+    }
+    
+    // 播放結束時重置狀態
+    if (status.didJustFinish) {
+      setPlayingStates((prev) => ({
+        ...prev,
+        [index]: { ...prev[index], isPlaying: false },
+      }));
+      setProgress((prev) => ({
+        ...prev,
+        [index]: 0,
+      }));
+    }
+  };
+
+  // 新增的進度更新控制函數
+  const updateProgress = async (sound, index) => {
+    if (!sound) return;
+    
+    try {
+      const status = await sound.getStatusAsync();
+      if (status.isLoaded) {
+        sound.setOnPlaybackStatusUpdate(onPlaybackStatusUpdate(index));
+      }
+    } catch (error) {
+      console.error("更新進度失敗", error);
+    }
+  };
 
   async function handleSharing() {
     if (currentExpandedIndex === null) return;
@@ -240,7 +282,20 @@ export default function RecordingListScreen({ navigation }) {
     try {
       // 刪除錄音文件
       const newRecordingData = [...recordingData];
-      await FileSystem.deleteAsync(newRecordingData[index].uri);
+      const fileUri = newRecordingData[index].uri;
+      
+      // 檢查文件是否存在
+      const fileInfo = await FileSystem.getInfoAsync(fileUri);
+      if (fileInfo.exists) {
+        try {
+          await FileSystem.deleteAsync(fileUri, { idempotent: true });
+        } catch (deleteError) {
+          console.warn("刪除文件失敗:", deleteError);
+          // 即使刪除失敗也繼續執行
+        }
+      }
+
+      // 更新錄音數據
       newRecordingData.splice(index, 1);
       setRecordingData(newRecordingData);
       saveRecordings(newRecordingData);
@@ -279,6 +334,11 @@ export default function RecordingListScreen({ navigation }) {
 
     } catch (error) {
       console.error("刪除錄音失敗", error);
+      Alert.alert(
+        "錯誤",
+        "刪除錄音時發生錯誤，請稍後再試",
+        [{ text: "確定", style: "default" }]
+      );
     }
   }
 
@@ -374,6 +434,20 @@ export default function RecordingListScreen({ navigation }) {
                       minimumTrackTintColor="#007AFF"
                       maximumTrackTintColor="#000000"
                       // 添加 onValueChange 來實時更新進度顯示
+                      onValueChange={(value) => {
+                        setProgress((prev) => ({
+                          ...prev,
+                          [index]: value,
+                        }));
+                      }}
+                      onSlidingComplete={async (value) => {
+                        const currentPlaying = playingStates[index];
+                        if (currentPlaying && currentPlaying.sound) {
+                          const status = await currentPlaying.sound.getStatusAsync();
+                          const newPosition = value * status.durationMillis;
+                          await currentPlaying.sound.setPositionAsync(newPosition);
+                        }
+                      }}
                     />
                     {/* 在Slider下面顯示進度的時間 */}
                     <View style={styles.Duration}>
@@ -486,13 +560,23 @@ export default function RecordingListScreen({ navigation }) {
               style={styles.input}
               onChangeText={setNewName}
               value={newName}
+              placeholder="輸入新名稱"
+              placeholderTextColor="#999"
             />
-            <TouchableOpacity onPress={saveNewName}>
-              <Text style={styles.modalActionLink}>保存</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setIsEditing(false)}>
-              <Text style={styles.modalActionLink}>取消</Text>
-            </TouchableOpacity>
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity 
+                style={styles.modalButton} 
+                onPress={saveNewName}
+              >
+                <Text style={styles.modalButtonText}>保存</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={() => setIsEditing(false)}
+              >
+                <Text style={styles.modalButtonText}>取消</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -555,10 +639,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalView: {
-    margin: 20,
+    width: '85%',
     backgroundColor: "white",
-    borderRadius: 14,
-    padding: 35,
+    borderRadius: 20,
+    padding: 25,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: {
@@ -570,22 +654,42 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: "600",
-    marginBottom: 15,
+    marginBottom: 20,
+    color: "#333",
   },
   input: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#C6C6C8",
-    width: "100%",
-    fontSize: 17,
-    paddingVertical: 10,
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    fontSize: 16,
     marginBottom: 20,
   },
-  modalActionLink: {
-    color: "#007AFF",
-    fontSize: 17,
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
     marginTop: 10,
+  },
+  modalButton: {
+    flex: 1,
+    marginHorizontal: 5,
+    paddingVertical: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    backgroundColor: COLORS.secondary,
   },
   emptyPromptContainer: {
     flex: 1,
